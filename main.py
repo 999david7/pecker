@@ -1,157 +1,164 @@
 import tkinter as tk
+from tkinter import font as tkfont
 from datetime import datetime, timedelta
-import threading
-import time
 
-class AlarmClock:
+
+class ModernAlarmClock:
     def __init__(self, root):
         self.root = root
-        self.root.title("Alarm Clock")
-        self.root.geometry("420x520")
-        self.root.resizable(False, False)
+        self.root.title("Aura Alarm")
+        self.root.geometry("450x650")
+        self.root.configure(bg="#0F172A")  # Deep Midnight Blue
 
-        # Theme colors (clean modern)
-        self.bg = "#0b1220"
-        self.card = "#121a2b"
-        self.accent = "#4f9cff"
-        self.text = "#e6edf3"
-        self.muted = "#7c8594"
-
-        self.root.configure(bg=self.bg)
+        # Style Palette
+        self.colors = {
+            "bg": "#0F172A",
+            "card": "#1E293B",
+            "accent": "#38BDF8",  # Sky Blue
+            "accent_low": "#0369A1",
+            "text": "#F8FAFC",
+            "muted": "#94A3B8",
+            "danger": "#F43F5E",
+            "warning": "#F59E0B"
+        }
 
         self.alarms = []
 
-        # Container
-        self.container = tk.Frame(root, bg=self.bg)
-        self.container.pack(fill="both", expand=True, padx=20, pady=20)
+        # Setup modern fonts
+        self.title_font = tkfont.Font(family="Segoe UI Variable", size=50, weight="bold")
+        self.sub_font = tkfont.Font(family="Segoe UI", size=12)
+        self.btn_font = tkfont.Font(family="Segoe UI", size=10, weight="bold")
 
-        # Clock
-        self.time_label = tk.Label(self.container,
-                                   font=("Segoe UI", 48, "bold"),
-                                   fg=self.accent,
-                                   bg=self.bg)
-        self.time_label.pack(pady=(10, 20))
+        self.build_ui()
+        self.update_loop()
 
-        # Card
-        self.card_frame = tk.Frame(self.container, bg=self.card)
-        self.card_frame.pack(fill="x", pady=10)
+    def build_ui(self):
+        # --- Top Clock Section ---
+        self.header = tk.Frame(self.root, bg=self.colors["bg"], pady=30)
+        self.header.pack(fill="x")
 
-        # Entry
-        self.entry = tk.Entry(self.card_frame,
-                              font=("Segoe UI", 14),
-                              justify="center",
-                              bd=0,
-                              bg="#1c2538",
-                              fg=self.text,
-                              insertbackground="white")
-        self.entry.pack(fill="x", padx=15, pady=15, ipady=8)
+        self.time_label = tk.Label(
+            self.header, text="00:00:00", font=self.title_font,
+            fg=self.colors["accent"], bg=self.colors["bg"]
+        )
+        self.time_label.pack()
 
-        # Buttons
-        btn_frame = tk.Frame(self.card_frame, bg=self.card)
-        btn_frame.pack(pady=(0, 10))
+        self.date_label = tk.Label(
+            self.header, text=datetime.now().strftime("%A, %B %d"),
+            font=self.sub_font, fg=self.colors["muted"], bg=self.colors["bg"]
+        )
+        self.date_label.pack()
 
-        self.make_button(btn_frame, "Add", self.add_alarm).grid(row=0, column=0, padx=5)
-        self.make_button(btn_frame, "Clear", self.clear_alarms, "#ff5c5c").grid(row=0, column=1, padx=5)
-        self.make_button(btn_frame, "Snooze", self.snooze, "#f59e0b").grid(row=0, column=2, padx=5)
+        # --- Input Section (The "Glass" Card) ---
+        self.input_card = tk.Frame(self.root, bg=self.colors["card"], padx=20, pady=20)
+        self.input_card.pack(fill="x", padx=30, pady=10)
 
-        # Alarm list
-        self.listbox = tk.Listbox(self.container,
-                                 font=("Segoe UI", 12),
-                                 bg=self.card,
-                                 fg=self.text,
-                                 selectbackground=self.accent,
-                                 bd=0,
-                                 highlightthickness=0)
-        self.listbox.pack(fill="both", expand=True, pady=15)
+        tk.Label(
+            self.input_card, text="SET NEW ALARM", font=("Segoe UI", 9, "bold"),
+            fg=self.colors["muted"], bg=self.colors["card"]
+        ).pack(anchor="w", pady=(0, 10))
 
-        # Status
-        self.status = tk.Label(self.container,
-                               text="Ready",
-                               font=("Segoe UI", 10),
-                               bg=self.bg,
-                               fg=self.muted)
-        self.status.pack()
+        # Modern Entry
+        self.entry = tk.Entry(
+            self.input_card, font=("Segoe UI", 20), justify="center",
+            bg="#0F172A", fg=self.colors["text"], insertbackground="white",
+            bd=0, highlightthickness=1, highlightbackground="#334155"
+        )
+        self.entry.pack(fill="x", ipady=10, pady=(0, 15))
+        self.entry.insert(0, "HH:MM")
+        self.entry.bind("<FocusIn>", lambda e: self.entry.delete(0, tk.END) if self.entry.get() == "HH:MM" else None)
 
-        self.update_clock()
-        self.start_checker()
+        # Buttons Grid
+        btn_frame = tk.Frame(self.input_card, bg=self.colors["card"])
+        btn_frame.pack(fill="x")
 
-    def make_button(self, parent, text, cmd, color=None):
-        return tk.Button(parent,
-                         text=text,
-                         command=cmd,
-                         bg=color or self.accent,
-                         fg="white",
-                         activebackground="#3b82f6",
-                         relief="flat",
-                         font=("Segoe UI", 10, "bold"),
-                         padx=12,
-                         pady=6,
-                         bd=0,
-                         cursor="hand2")
+        self.create_btn(btn_frame, "ADD ALARM", self.add_alarm, self.colors["accent"]).pack(side="left", expand=True,
+                                                                                            fill="x", padx=(0, 5))
+        self.create_btn(btn_frame, "CLEAR", self.clear_alarms, "#334155").pack(side="left", expand=True, fill="x",
+                                                                               padx=(5, 0))
 
-    def update_clock(self):
-        now = datetime.now().strftime("%H:%M:%S")
-        self.time_label.config(text=now)
-        self.root.after(1000, self.update_clock)
+        # --- Alarm List Section ---
+        tk.Label(
+            self.root, text="ACTIVE ALARMS", font=("Segoe UI", 9, "bold"),
+            fg=self.colors["muted"], bg=self.colors["bg"]
+        ).pack(anchor="w", padx=35, pady=(20, 5))
+
+        self.listbox = tk.Listbox(
+            self.root, font=("Segoe UI", 13), bg=self.colors["bg"],
+            fg=self.colors["text"], borderwidth=0, highlightthickness=0,
+            selectbackground=self.colors["card"], activestyle="none"
+        )
+        self.listbox.pack(fill="both", expand=True, padx=35, pady=5)
+
+        # Bottom Status
+        self.status_bar = tk.Label(
+            self.root, text="System Online", font=("Segoe UI", 9),
+            bg="#0F172A", fg=self.colors["muted"], pady=10
+        )
+        self.status_bar.pack(side="bottom")
+
+    def create_btn(self, parent, text, cmd, color):
+        btn = tk.Button(
+            parent, text=text, command=cmd, font=self.btn_font,
+            bg=color, fg="white", activebackground=color,
+            activeforeground="white", relief="flat", bd=0,
+            cursor="hand2", pady=10
+        )
+        # Add hover effect
+        btn.bind("<Enter>", lambda e: btn.configure(background=self.lighten_color(color)))
+        btn.bind("<Leave>", lambda e: btn.configure(background=color))
+        return btn
+
+    def lighten_color(self, hex_color):
+        """Helper for hover effects."""
+        if not hex_color.startswith('#') or len(hex_color) != 7: return hex_color
+        return hex_color  # Simplification for demo; normally calculates lighter shade
+
+    def update_loop(self):
+        now_dt = datetime.now()
+        now_str = now_dt.strftime("%H:%M:%S")
+        self.time_label.config(text=now_str)
+
+        # Check Alarms
+        if now_str in self.alarms:
+            self.trigger_alarm(now_str)
+
+        self.root.after(1000, self.update_loop)
 
     def add_alarm(self):
         t = self.entry.get()
-        if t and t not in self.alarms:
-            self.alarms.append(t)
-            self.listbox.insert(tk.END, t)
-            self.status.config(text=f"Added {t}", fg="#22c55e")
+        try:
+            # Validate format
+            valid_t = datetime.strptime(t, "%H:%M").strftime("%H:%M:00")
+            if valid_t not in self.alarms:
+                self.alarms.append(valid_t)
+                self.listbox.insert(tk.END, f"  🔔  {valid_t}")
+                self.status_bar.config(text=f"Alarm set: {valid_t}", fg=self.colors["accent"])
             self.entry.delete(0, tk.END)
-        else:
-            self.status.config(text="Invalid or duplicate", fg="#ef4444")
+        except:
+            self.status_bar.config(text="Use HH:MM format", fg=self.colors["danger"])
 
     def clear_alarms(self):
         self.alarms.clear()
         self.listbox.delete(0, tk.END)
-        self.status.config(text="Cleared", fg=self.muted)
+        self.status_bar.config(text="Alarms cleared", fg=self.colors["muted"])
 
-    def snooze(self):
-        t = (datetime.now() + timedelta(minutes=5)).strftime("%H:%M:%S")
-        self.alarms.append(t)
-        self.listbox.insert(tk.END, t)
-        self.status.config(text=f"Snoozed to {t}", fg="#facc15")
+    def trigger_alarm(self, t):
+        self.root.bell()
+        top = tk.Toplevel(self.root)
+        top.title("Alarm")
+        top.geometry("300x200")
+        top.configure(bg=self.colors["card"])
+        top.attributes("-topmost", True)
 
-    def start_checker(self):
-        def loop():
-            while True:
-                now = datetime.now().strftime("%H:%M:%S")
-                if now in self.alarms:
-                    self.trigger(now)
-                time.sleep(1)
-        threading.Thread(target=loop, daemon=True).start()
+        tk.Label(top, text="TIME'S UP", font=self.btn_font, fg=self.colors["accent"], bg=self.colors["card"]).pack(
+            pady=(20, 5))
+        tk.Label(top, text=t, font=("Segoe UI", 30, "bold"), fg="white", bg=self.colors["card"]).pack(pady=10)
 
-    def trigger(self, t):
-        self.status.config(text=f"⏰ {t}", fg="#facc15")
-
-        popup = tk.Toplevel(self.root)
-        popup.geometry("280x140")
-        popup.configure(bg=self.card)
-        popup.attributes("-topmost", True)
-
-        tk.Label(popup, text="⏰ Alarm",
-                 font=("Segoe UI", 18, "bold"),
-                 bg=self.card,
-                 fg=self.accent).pack(pady=20)
-
-        self.make_button(popup, "Dismiss", popup.destroy).pack()
-
-        for _ in range(4):
-            self.root.configure(bg="#1c2538")
-            time.sleep(0.15)
-            self.root.configure(bg=self.bg)
-            time.sleep(0.15)
-
-        if t in self.alarms:
-            i = self.alarms.index(t)
-            self.alarms.remove(t)
-            self.listbox.delete(i)
+        self.create_btn(top, "DISMISS", top.destroy, self.colors["danger"]).pack(pady=10, padx=20, fill="x")
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = AlarmClock(root)
+    app = ModernAlarmClock(root)
     root.mainloop()
